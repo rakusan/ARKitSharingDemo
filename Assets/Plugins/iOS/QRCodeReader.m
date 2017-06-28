@@ -13,13 +13,12 @@ static volatile BOOL reading = false;
 void ReadQRCode(long long mtlTexPtr)
 {
     if (reading) return;
+    reading = YES;
     
-    MTLTextureRef mtlText = (__bridge MTLTextureRef) (void*) mtlTexPtr;
-    CIImage *ciImage = [CIImage imageWithMTLTexture:mtlText options:nil];
+    MTLTextureRef mtlTex = (__bridge MTLTextureRef) (void*) mtlTexPtr;
+    CIImage *ciImage = [CIImage imageWithMTLTexture:mtlTex options:nil];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        reading = YES;
-        
         CGRect screenBounds = UIScreen.mainScreen.bounds;
         CGFloat screenScale = UIScreen.mainScreen.scale;
         CGFloat sw = screenBounds.size.width * screenScale;
@@ -35,8 +34,7 @@ void ReadQRCode(long long mtlTexPtr)
             
             // TODO シェアリング用のQRコードかどうかの識別を feature.messageString の内容で行う。
             
-            // ciImageは横向きの画像かつスクリーンのピクセル数と異なるため、スクリーン座標系（縦向き）に変換する。
-            // スクリーンのアスペクト比とciImageのアスペクト比が同じ前提。そうでない場合はこの変換ではダメ。
+            // スクリーン座標（縦向き）に変換しているが、いろいろ雑。
             qrcodeBounds[0] = sw - feature.topLeft.y     * sw / ih;
             qrcodeBounds[1] = sh - feature.topLeft.x     * sh / iw;
             qrcodeBounds[2] = sw - feature.topRight.y    * sw / ih;

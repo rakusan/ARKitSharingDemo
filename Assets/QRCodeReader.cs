@@ -38,11 +38,13 @@ public class QRCodeReader : MonoBehaviour {
 	private bool done = false;
 	private UnityARSessionNativeInterface arSession = null;
 	private GameObject qrcodePlane;
+	private GameObject plane;
 
 	// Use this for initialization
 	void Start () {
 		arSession = UnityARSessionNativeInterface.GetARSessionNativeInterface ();
 		qrcodePlane = transform.Find ("QRCodePlane").gameObject;
+		plane = transform.Find ("QRCodePlane/Plane").gameObject;
 	}
 	
 	// Update is called once per frame
@@ -89,8 +91,8 @@ public class QRCodeReader : MonoBehaviour {
 				var bottomToTop = worldTopLeft - worldBottomLeft;
 				var leftToRight = worldBottomRight - worldBottomLeft;
 				qrcodePlane.transform.forward = bottomToTop;
-				qrcodePlane.transform.localScale = new Vector3(leftToRight.magnitude, 1, bottomToTop.magnitude);
 				qrcodePlane.transform.position = worldBottomLeft + (bottomToTop + leftToRight) * 0.5f;
+				plane.transform.localScale = new Vector3(leftToRight.magnitude, 1, bottomToTop.magnitude) * 0.1f;
 				break;
 			}
 		}
