@@ -13,7 +13,7 @@ public class SharingReceive : MonoBehaviour {
 	[SerializeField]
 	private GameObject avatarPrefab;
 
-	private Hashtable devices = Hashtable.Synchronized(new Hashtable());
+	private Hashtable devices = new Hashtable();
 	private Dictionary<string, GameObject> avatars = new Dictionary<string, GameObject> ();
 
 	// Use this for initialization
@@ -24,19 +24,21 @@ public class SharingReceive : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		foreach (DictionaryEntry e in devices) {
-			string address = (string) e.Key;
-			object[] values = (object[]) e.Value;
-			Vector3 position = (Vector3) values[0];
-			Quaternion rotation = (Quaternion)values [1];
+		lock (devices.SyncRoot) {
+			foreach (DictionaryEntry e in devices) {
+				string address = (string)e.Key;
+				object[] values = (object[])e.Value;
+				Vector3 position = (Vector3)values [0];
+				Quaternion rotation = (Quaternion)values [1];
 
-			GameObject avatar;
-			if (!avatars.TryGetValue(address, out avatar)) {
-				avatar = Instantiate (avatarPrefab);
-				avatars [address] = avatar;
+				GameObject avatar;
+				if (!avatars.TryGetValue (address, out avatar)) {
+					avatar = Instantiate (avatarPrefab);
+					avatars [address] = avatar;
+				}
+				avatar.transform.position = qrcodePlane.transform.TransformPoint (position);
+				avatar.transform.rotation = qrcodePlane.transform.rotation * rotation;
 			}
-			avatar.transform.position = qrcodePlane.transform.TransformPoint (position);
-			avatar.transform.rotation = qrcodePlane.transform.rotation * rotation;
 		}
 	}
 
@@ -56,7 +58,12 @@ public class SharingReceive : MonoBehaviour {
 			BitConverter.ToSingle (udpData, 20),
 			BitConverter.ToSingle (udpData, 24));
 
-		devices[remoteEP.Address.ToString ()] = new object[] { cameraPosition, cameraRotation };
+		string address = remoteEP.Address.ToString ();
+		object[] values = new object[] { cameraPosition, cameraRotation };
+
+		lock (devices.SyncRoot) {
+			devices [address] = values;
+		}
 
 		udpReceive.BeginReceive (ReceiveCallback, udpReceive);
 	}
