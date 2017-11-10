@@ -25,7 +25,6 @@ public class UnityARBuildPostprocessor
 		proj.ReadFromString(File.ReadAllText(projPath));
         proj.AddFrameworkToProject(proj.TargetGuidByName("Unity-iPhone"), "ARKit.framework", false);
 		string target = proj.TargetGuidByName("Unity-iPhone");
-//        proj.SetBuildProperty(target, "DEVELOPMENT_TEAM", "Z6SFPV59E3");
 		Directory.CreateDirectory(Path.Combine(pathToBuiltProject, "Libraries/Unity"));
 
 		string[] filesToCopy = new string[]

@@ -7,8 +7,8 @@ namespace UnityEngine.XR.iOS
         /** Tracking is not limited. */
         ARTrackingStateReasonNone,
 
-		/** Tracking is limited due to initialization in progress. */
-		ARTrackingStateReasonInitializing,
+        /** Tracking is limited due to initialization in progress. */
+        ARTrackingStateReasonInitializing,
 
         /** Tracking is limited due to a excessive motion of the camera. */
         ARTrackingStateReasonExcessiveMotion,
