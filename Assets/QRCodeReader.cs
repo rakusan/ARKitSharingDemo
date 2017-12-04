@@ -14,14 +14,14 @@ public class QRCodeReader : MonoBehaviour {
 	private static extern void ReadQRCode(long mtlTexPtr);
 
 	[DllImport ("__Internal")]
-	private static extern void GetQRCodeBounds(out IntPtr boundsPtr);
+	private static extern void GetQRCodeCorners(out IntPtr cornersPtr);
 
-	private static float[] GetQRCodeBounds() {
-		IntPtr boundsPtr;
-		GetQRCodeBounds (out boundsPtr);
-		float[] bounds = new float[8];
-		Marshal.Copy (boundsPtr, bounds, 0, 8);
-		return bounds;
+	private static float[] GetQRCodeCorners() {
+		IntPtr cornersPtr;
+		GetQRCodeCorners (out cornersPtr);
+		float[] corners = new float[8];
+		Marshal.Copy (cornersPtr, corners, 0, 8);
+		return corners;
 	}
 
 #else
@@ -29,7 +29,7 @@ public class QRCodeReader : MonoBehaviour {
 	private static void ReadQRCode(long mtlTexPtr) {
 	}
 
-	private static float[] GetQRCodeBounds() {
+	private static float[] GetQRCodeCorners() {
 		return new float[8];
 	}
 
@@ -37,12 +37,14 @@ public class QRCodeReader : MonoBehaviour {
 
 	private bool done = false;
 	private UnityARSessionNativeInterface arSession = null;
+	private Matrix4x4 displayTransformInverse;
 	private GameObject qrcodePlane;
 	private GameObject plane;
 
 	// Use this for initialization
 	void Start () {
 		arSession = UnityARSessionNativeInterface.GetARSessionNativeInterface ();
+		UnityARSessionNativeInterface.ARFrameUpdatedEvent += ARFrameUpdated;
 		qrcodePlane = transform.Find ("QRCodePlane").gameObject;
 		plane = transform.Find ("QRCodePlane/Plane").gameObject;
 	}
@@ -57,36 +59,54 @@ public class QRCodeReader : MonoBehaviour {
 		}
 	}
 
-	void OnReadQRCode(string arg) {
-		float[] bounds = GetQRCodeBounds ();
-
-		//Debug.Log (string.Format ("QR topLeft: {0:0.######},{1:0.######}", bounds [0], bounds [1]));
-		//Debug.Log (string.Format ("QR topRight: {0:0.######},{1:0.######}", bounds [2], bounds [3]));
-		//Debug.Log (string.Format ("QR bottomRight: {0:0.######},{1:0.######}", bounds [4], bounds [5]));
-		//Debug.Log (string.Format ("QR bottomLeft: {0:0.######},{1:0.######}", bounds [6], bounds [7]));
-
-		var topLeft     = Camera.main.ScreenToViewportPoint (new Vector3 (bounds [0], bounds [1]));
-		var topRight    = Camera.main.ScreenToViewportPoint (new Vector3 (bounds [2], bounds [3]));
-		var bottomRight = Camera.main.ScreenToViewportPoint (new Vector3 (bounds [4], bounds [5]));
-		var bottomLeft  = Camera.main.ScreenToViewportPoint (new Vector3 (bounds [6], bounds [7]));
-
-		HitTest (topLeft, topRight, bottomRight, bottomLeft);
+	private void ARFrameUpdated(UnityARCamera camera) {
+		Matrix4x4 tmp = new Matrix4x4 (
+			camera.displayTransform.column0,
+			camera.displayTransform.column1,
+			camera.displayTransform.column2,
+			camera.displayTransform.column3
+		);
+		displayTransformInverse = tmp.inverse;
 	}
 
-	private void HitTest(Vector3 topLeft, Vector3 topRight, Vector3 bottomRight, Vector3 bottomLeft) {
+	private Vector2 VideoTextureToViewportPoint(Vector2 videoTexturePoint) {
+		Vector4 column0 = displayTransformInverse.GetColumn(0);
+		Vector4 column1 = displayTransformInverse.GetColumn(1);
+		float x = column0.x * videoTexturePoint.x + column0.y * videoTexturePoint.y + column0.z;
+		float y = column1.x * videoTexturePoint.x + column1.y * videoTexturePoint.y + column1.z;
+		return new Vector2 (x, y);
+	}
+
+	void OnReadQRCode(string arg) {
+		float[] corners = GetQRCodeCorners ();
+
+//		Debug.Log (string.Format ("QR topLeft: {0:0.######},{1:0.######}", corners [0], corners [1]));
+//		Debug.Log (string.Format ("QR topRight: {0:0.######},{1:0.######}", corners [2], corners [3]));
+//		Debug.Log (string.Format ("QR bottomLeft: {0:0.######},{1:0.######}", corners [4], corners [5]));
+//		Debug.Log (string.Format ("QR bottomRight: {0:0.######},{1:0.######}", corners [6], corners [7]));
+
+		var topLeft     = VideoTextureToViewportPoint(new Vector2 (corners [0], corners [1]));
+		var topRight    = VideoTextureToViewportPoint(new Vector2 (corners [2], corners [3]));
+		var bottomLeft  = VideoTextureToViewportPoint(new Vector2 (corners [4], corners [5]));
+		var bottomRight = VideoTextureToViewportPoint(new Vector2 (corners [6], corners [7]));
+
+		HitTest (topLeft, topRight, bottomLeft, bottomRight);
+	}
+
+	private void HitTest(Vector2 topLeft, Vector2 topRight, Vector2 bottomLeft, Vector2 bottomRight) {
 		Dictionary<string, List<ARHitTestResult>> results = new Dictionary<string, List<ARHitTestResult>>();
 		HitTest (topLeft, results);
 		HitTest (topRight, results);
-		HitTest (bottomRight, results);
 		HitTest (bottomLeft, results);
+		HitTest (bottomRight, results);
 
 		foreach (var result in results) {
 			List<ARHitTestResult> list = result.Value;
 			if (list.Count == 4) {
 				var worldTopLeft     = UnityARMatrixOps.GetPosition (list[0].worldTransform);
 				//var worldTopRight    = UnityARMatrixOps.GetPosition (list[1].worldTransform);
-				var worldBottomRight = UnityARMatrixOps.GetPosition (list[2].worldTransform);
-				var worldBottomLeft  = UnityARMatrixOps.GetPosition (list[3].worldTransform);
+				var worldBottomLeft  = UnityARMatrixOps.GetPosition (list[2].worldTransform);
+				var worldBottomRight = UnityARMatrixOps.GetPosition (list[3].worldTransform);
 
 				var bottomToTop = worldTopLeft - worldBottomLeft;
 				var leftToRight = worldBottomRight - worldBottomLeft;
@@ -98,7 +118,7 @@ public class QRCodeReader : MonoBehaviour {
 		}
 	}
 
-	private void HitTest(Vector3 point, Dictionary<string, List<ARHitTestResult>> results) {
+	private void HitTest(Vector2 point, Dictionary<string, List<ARHitTestResult>> results) {
 		List<ARHitTestResult> hitResults = arSession.HitTest (
 			new ARPoint { x = point.x, y = point.y },
 			ARHitTestResultType.ARHitTestResultTypeExistingPlaneUsingExtent);
