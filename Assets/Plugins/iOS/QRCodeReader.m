@@ -25,8 +25,8 @@ void ReadQRCode(long long mtlTexPtr)
         CIDetector *detector = [CIDetector detectorOfType:CIDetectorTypeQRCode context:nil options:nil];
         NSArray<CIFeature *> *features = [detector featuresInImage:ciImage];
         
-        [features enumerateObjectsUsingBlock:^(CIFeature * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            CIQRCodeFeature *feature = (CIQRCodeFeature*) obj;
+        if (features.count > 0) {
+            CIQRCodeFeature *feature = (CIQRCodeFeature*) [features objectAtIndex:0];
             
             // TODO シェアリング用のQRコードかどうかの識別を feature.messageString の内容で行う。
             
@@ -40,9 +40,7 @@ void ReadQRCode(long long mtlTexPtr)
             qrcodeCorners[7] = feature.bottomRight.y / ih;
             
             UnitySendMessage("QRCodeReader", "OnReadQRCode", "");
-            
-            stop = YES;
-        }];
+        }
         
         reading = NO;
     });
